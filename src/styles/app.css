@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme {
+  /* Primary */
+  --color-frag-orange: #FF5C00;
+  --color-abyss: #0A0A0F;
+  --color-void: #12121A;
+  --color-charcoal: #1E1E2A;
+
+  /* Accents */
+  --color-electric-blue: #00D4FF;
+  --color-kill-red: #FF2040;
+  --color-victory-green: #00E676;
+  --color-headshot-yellow: #FFD600;
+
+  /* Neutrals */
+  --color-gray-1: #C8C8D0;
+  --color-gray-2: #7A7A8A;
+  --color-gray-3: #3A3A4A;
+
+  /* Fonts */
+  --font-heading: 'Bebas Neue', 'Arial Narrow', 'Impact', sans-serif;
+  --font-subheading: 'Rajdhani', 'Orbitron', 'Segoe UI', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-pill: 9999px;
+}
+
+@layer base {
+  html,
+  body {
+    @apply bg-abyss text-white antialiased;
+    font-family: var(--font-body);
+    scroll-behavior: smooth;
+  }
+
+  /* Selection color */
+  ::selection {
+    background-color: rgba(255, 92, 0, 0.3);
+    color: #fff;
+  }
+
+  /* Focus ring */
+  :focus-visible {
+    outline: 2px solid #FF5C00;
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .text-gradient-signature {
+    background: linear-gradient(135deg, #FF5C00 0%, #00D4FF 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-glow {
+    box-shadow: 0 0 0 1px rgba(255, 92, 0, 0.3), 0 0 20px rgba(255, 92, 0, 0.1);
+  }
+
+  .animate-fade-up {
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
