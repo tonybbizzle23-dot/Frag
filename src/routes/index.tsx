@@ -617,12 +617,12 @@ function Pricing() {
             </li>
           </ul>
 
-          <Link
-            to="/app"
+          <a
+            href="https://buy.stripe.com/bJefZj0P9fUd8x96G5fEk00"
             className="mt-8 block rounded-sm bg-frag-orange py-3 text-center font-body text-sm font-semibold text-white transition-all hover:bg-[#FF7A33] cursor-pointer"
           >
             Go Pro
-          </Link>
+          </a>
         </div>
       </div>
     </Section>

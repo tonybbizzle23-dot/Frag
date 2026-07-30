@@ -20,6 +20,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
             >
               New Clip
             </Link>
+            <a
+              href="https://buy.stripe.com/bJefZj0P9fUd8x96G5fEk00"
+              className="rounded-sm border border-frag-orange px-5 py-2 font-body text-sm font-semibold text-frag-orange transition-all hover:bg-frag-orange/10 cursor-pointer"
+            >
+              Upgrade to Pro
+            </a>
           </nav>
         </div>
       </header>
