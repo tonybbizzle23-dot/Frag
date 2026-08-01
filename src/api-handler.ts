@@ -19,14 +19,12 @@ import {
   deleteSession,
   sessionCookieHeader,
   SESSION_COOKIE,
-  type UserRow,
 } from "./auth";
 
 import {
   uploadToStorage,
   getBufferFromStorage,
   getDownloadUrl,
-  deleteFromStorage,
   objectExistsInStorage,
 } from "./r2-client";
 

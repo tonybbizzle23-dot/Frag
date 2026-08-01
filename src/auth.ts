@@ -65,10 +65,11 @@ export async function getSessionFromCookie(req: Request): Promise<UserRow | null
  */
 export async function deleteSession(token: string): Promise<boolean> {
   const db = sql();
-  const result = await db`
+  const rows = await db`
     DELETE FROM sessions WHERE token = ${token}
+    RETURNING id
   `;
-  return result.count > 0;
+  return rows.length > 0;
 }
 
 /** Build a Set-Cookie header string for the session token. */
