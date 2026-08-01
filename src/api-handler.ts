@@ -11,6 +11,17 @@ import { mkdir, writeFile, readFile, unlink, stat } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
+import bcrypt from "bcryptjs";
+import { sql } from "./db";
+import {
+  createSession,
+  getSessionFromCookie,
+  deleteSession,
+  sessionCookieHeader,
+  SESSION_COOKIE,
+  type UserRow,
+} from "./auth";
+
 import {
   uploadToStorage,
   getBufferFromStorage,
@@ -22,11 +33,23 @@ import {
 const TEMP_DIR = path.join(os.tmpdir(), "fragclip");
 const LOCAL_DIR = "/home/team/shared/uploads";
 
-function json(data: any, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+function json(data: any, status = 200, extraHeaders?: Record<string, string>) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (extraHeaders) {
+    Object.assign(headers, extraHeaders);
+  }
+  return new Response(JSON.stringify(data), { status, headers });
+}
+
+/** Read a specific cookie value from a Cookie header string. */
+function parseCookie(header: string, name: string): string | null {
+  for (const cookie of header.split(";")) {
+    const [key, ...rest] = cookie.trim().split("=");
+    if (key === name) {
+      return rest.join("=") || null;
+    }
+  }
+  return null;
 }
 
 export async function apiRouter(req: Request): Promise<Response> {
@@ -35,6 +58,116 @@ export async function apiRouter(req: Request): Promise<Response> {
   const method = req.method;
 
   try {
+    // ── Auth routes ──
+
+    // POST /api/auth/signup
+    if (pathname === "/api/auth/signup" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const { email, password } = body || {};
+
+      if (!email || !password) {
+        return json({ error: "Email and password are required" }, 400);
+      }
+
+      // Validate email format
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return json({ error: "Invalid email format" }, 400);
+      }
+
+      // Validate password length
+      if (password.length < 8) {
+        return json({ error: "Password must be at least 8 characters" }, 400);
+      }
+
+      const db = sql();
+
+      // Check for existing user
+      const existing = await db`SELECT id FROM users WHERE email = ${email} LIMIT 1`;
+      if (existing.length > 0) {
+        return json({ error: "A user with this email already exists" }, 409);
+      }
+
+      // Hash password and create user
+      const passwordHash = await bcrypt.hash(password, 10);
+      const [user] = await db`
+        INSERT INTO users (email, password_hash)
+        VALUES (${email}, ${passwordHash})
+        RETURNING id, email, subscription_tier
+      `;
+
+      // Create session
+      const token = await createSession(user.id);
+      const cookie = sessionCookieHeader(token);
+
+      return json(
+        { user: { id: user.id, email: user.email, subscription_tier: user.subscription_tier } },
+        200,
+        { "Set-Cookie": cookie },
+      );
+    }
+
+    // POST /api/auth/login
+    if (pathname === "/api/auth/login" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const { email, password } = body || {};
+
+      if (!email || !password) {
+        return json({ error: "Email and password are required" }, 400);
+      }
+
+      const db = sql();
+
+      // Find user
+      const rows = await db`
+        SELECT id, email, password_hash, subscription_tier
+        FROM users WHERE email = ${email} LIMIT 1
+      `;
+
+      if (rows.length === 0) {
+        return json({ error: "Invalid email or password" }, 401);
+      }
+
+      const user = rows[0];
+      const valid = await bcrypt.compare(password, user.password_hash);
+      if (!valid) {
+        return json({ error: "Invalid email or password" }, 401);
+      }
+
+      // Create session
+      const token = await createSession(user.id);
+      const cookie = sessionCookieHeader(token);
+
+      return json(
+        { user: { id: user.id, email: user.email, subscription_tier: user.subscription_tier } },
+        200,
+        { "Set-Cookie": cookie },
+      );
+    }
+
+    // POST /api/auth/logout
+    if (pathname === "/api/auth/logout" && method === "POST") {
+      const cookieHeader = req.headers.get("cookie");
+      if (cookieHeader) {
+        const token = parseCookie(cookieHeader, SESSION_COOKIE);
+        if (token) {
+          await deleteSession(token);
+        }
+      }
+
+      return json({ success: true }, 200, {
+        "Set-Cookie": sessionCookieHeader("", true),
+      });
+    }
+
+    // GET /api/auth/me
+    if (pathname === "/api/auth/me" && method === "GET") {
+      const user = await getSessionFromCookie(req);
+      if (!user) {
+        return json({ user: null });
+      }
+      return json({ user: { id: user.id, email: user.email, subscription_tier: user.subscription_tier } });
+    }
+
     // GET /api/video/:id/exists
     const existsMatch = pathname.match(/^\/api\/video\/([^/]+)\/exists$/);
     if (existsMatch && method === "GET") {
