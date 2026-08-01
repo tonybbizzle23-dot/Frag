@@ -127,22 +127,6 @@ function EditorPage() {
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  // Generate a test video button
-  const generateTestVideo = async () => {
-    setGenerating(true);
-    try {
-      const res = await fetch("/api/generate-test-video", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        // Reload with new ID
-        window.location.href = `/app/editor/${data.fileId}`;
-      }
-    } catch (e) {
-      setGenerateError("Failed to generate test video");
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   return (
     <div>

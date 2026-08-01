@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
+import { useAuth } from "~/auth-context";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -288,6 +289,10 @@ function Home() {
 
 /* ─── Nav ─── */
 function Nav() {
+  const { user, isLoading } = useAuth();
+  const ctaTo = user ? "/app" : "/auth/signup";
+  const ctaLabel = user ? "Open App" : "Get Early Access";
+
   return (
     <nav className="sticky top-0 z-20 border-b border-charcoal/50 bg-abyss/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1280px] items-center justify-between px-6 py-3">
@@ -317,18 +322,18 @@ function Nav() {
             Pricing
           </a>
           <Link
-            to="/app"
+            to={ctaTo}
             className="rounded-sm bg-frag-orange px-5 py-2 font-body text-sm font-semibold text-white transition-all hover:bg-[#FF7A33] cursor-pointer"
           >
-            Get Early Access
+            {isLoading ? "…" : ctaLabel}
           </Link>
         </div>
         {/* Mobile CTA */}
         <Link
-          to="/app"
+          to={ctaTo}
           className="rounded-sm bg-frag-orange px-4 py-1.5 font-body text-xs font-semibold text-white md:hidden cursor-pointer"
         >
-          Join
+          {isLoading ? "…" : user ? "Open App" : "Join"}
         </Link>
       </div>
     </nav>
@@ -337,6 +342,10 @@ function Nav() {
 
 /* ─── Hero ─── */
 function Hero() {
+  const { user, isLoading } = useAuth();
+  const ctaTo = user ? "/app" : "/auth/signup";
+  const ctaLabel = user ? "Open App" : "Get Early Access";
+
   return (
     <section className="relative flex min-h-[85dvh] items-center justify-center overflow-hidden">
       {/* Background image with overlay */}
@@ -370,10 +379,10 @@ function Hero() {
         </p>
         <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
           <Link
-            to="/app"
+            to={ctaTo}
             className="inline-flex rounded-sm bg-frag-orange px-8 py-3.5 font-body text-base font-semibold text-white transition-all hover:bg-[#FF7A33] active:scale-[0.98] cursor-pointer"
           >
-            Get Early Access
+            {isLoading ? "…" : ctaLabel}
           </Link>
           <a
             href="#how-it-works"
@@ -514,6 +523,8 @@ function Features() {
 
 /* ─── Pricing ─── */
 function Pricing() {
+  const { user } = useAuth();
+
   return (
     <Section id="pricing">
       <div className="text-center">
@@ -564,10 +575,10 @@ function Pricing() {
           </ul>
 
           <Link
-            to="/app"
+            to={user ? "/app" : "/auth/signup"}
             className="mt-8 block rounded-sm border border-frag-orange py-3 text-center font-body text-sm font-semibold text-frag-orange transition-all hover:bg-frag-orange/10 cursor-pointer"
           >
-            Get Started Free
+            {user ? "Open App" : "Get Started Free"}
           </Link>
         </div>
 
