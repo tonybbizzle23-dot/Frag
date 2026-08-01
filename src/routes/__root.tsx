@@ -5,6 +5,7 @@ import {
   createRootRoute,
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 import appCss from "~/styles/app.css?url";
@@ -65,6 +66,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       <body className="min-h-dvh bg-abyss font-body text-white antialiased">
         {children}
         <Scripts />
+        <Analytics />
         <SpeedInsights />
       </body>
     </html>
