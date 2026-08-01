@@ -16,6 +16,7 @@ export interface UserRow {
   id: string;
   email: string;
   subscription_tier: string;
+  subscription_status: string;
 }
 
 /**
@@ -48,7 +49,7 @@ export async function getSessionFromCookie(req: Request): Promise<UserRow | null
 
   const db = sql();
   const rows = await db`
-    SELECT u.id, u.email, u.subscription_tier
+    SELECT u.id, u.email, u.subscription_tier, u.subscription_status
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.token = ${token}

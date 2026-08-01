@@ -16,6 +16,7 @@ export interface AuthUser {
   id: string;
   email: string;
   subscription_tier: string;
+  subscription_status: string;
 }
 
 interface AuthContextValue {
