@@ -28,6 +28,13 @@ import {
   objectExistsInStorage,
 } from "./r2-client";
 
+import {
+  getStripe,
+  STRIPE_PRO_PRICE_ID,
+  isProStatus,
+  normalizeSubscriptionStatus,
+} from "./stripe";
+
 const TEMP_DIR = path.join(os.tmpdir(), "fragclip");
 const LOCAL_DIR = "/home/team/shared/uploads";
 
@@ -90,7 +97,7 @@ export async function apiRouter(req: Request): Promise<Response> {
       const [user] = await db`
         INSERT INTO users (email, password_hash)
         VALUES (${email}, ${passwordHash})
-        RETURNING id, email, subscription_tier
+        RETURNING id, email, subscription_tier, subscription_status
       `;
 
       // Create session
@@ -98,7 +105,14 @@ export async function apiRouter(req: Request): Promise<Response> {
       const cookie = sessionCookieHeader(token);
 
       return json(
-        { user: { id: user.id, email: user.email, subscription_tier: user.subscription_tier } },
+        {
+          user: {
+            id: user.id,
+            email: user.email,
+            subscription_tier: user.subscription_tier,
+            subscription_status: user.subscription_status,
+          },
+        },
         200,
         { "Set-Cookie": cookie },
       );
@@ -117,7 +131,7 @@ export async function apiRouter(req: Request): Promise<Response> {
 
       // Find user
       const rows = await db`
-        SELECT id, email, password_hash, subscription_tier
+        SELECT id, email, password_hash, subscription_tier, subscription_status
         FROM users WHERE email = ${email} LIMIT 1
       `;
 
@@ -136,7 +150,14 @@ export async function apiRouter(req: Request): Promise<Response> {
       const cookie = sessionCookieHeader(token);
 
       return json(
-        { user: { id: user.id, email: user.email, subscription_tier: user.subscription_tier } },
+        {
+          user: {
+            id: user.id,
+            email: user.email,
+            subscription_tier: user.subscription_tier,
+            subscription_status: user.subscription_status,
+          },
+        },
         200,
         { "Set-Cookie": cookie },
       );
@@ -163,7 +184,14 @@ export async function apiRouter(req: Request): Promise<Response> {
       if (!user) {
         return json({ user: null });
       }
-      return json({ user: { id: user.id, email: user.email, subscription_tier: user.subscription_tier } });
+      return json({
+        user: {
+          id: user.id,
+          email: user.email,
+          subscription_tier: user.subscription_tier,
+          subscription_status: user.subscription_status,
+        },
+      });
     }
 
     // GET /api/video/:id/exists
@@ -541,6 +569,162 @@ export async function apiRouter(req: Request): Promise<Response> {
         }));
 
       return json({ clips });
+    }
+
+    // ── Stripe routes ──
+
+    // POST /api/stripe/create-checkout
+    // Creates a Stripe Checkout Session for the FragClip Pro subscription.
+    // Requires an authenticated session cookie; returns the hosted Checkout URL.
+    if (pathname === "/api/stripe/create-checkout" && method === "POST") {
+      const user = await getSessionFromCookie(req);
+      if (!user) {
+        return json({ error: "You must be logged in to upgrade." }, 401);
+      }
+
+      let session;
+      try {
+        const origin = new URL(req.url).origin;
+        session = await getStripe().checkout.sessions.create({
+          mode: "subscription",
+          line_items: [{ price: STRIPE_PRO_PRICE_ID, quantity: 1 }],
+          success_url: `${origin}/app?upgraded=true`,
+          cancel_url: `${origin}/app`,
+          client_reference_id: user.id,
+          metadata: { userId: user.id },
+          customer_email: user.email,
+          // Managed Payments is enabled by default on the owner's Stripe
+          // account and requires an eligible product tax_code on every line
+          // item. Disable it per-session so checkout works without product
+          // tax configuration (standard payments still collect no tax; if the
+          // owner later enables Stripe Tax, remove this flag and set eligible
+          // tax codes on the products instead).
+          managed_payments: { enabled: false },
+        });
+      } catch (err: any) {
+        console.error("[stripe] checkout session creation failed:", err.message);
+        return json(
+          { error: "Checkout is temporarily unavailable. Please try again later." },
+          502,
+        );
+      }
+
+      if (!session.url) {
+        return json({ error: "Checkout could not be started." }, 500);
+      }
+      return json({ url: session.url });
+    }
+
+    // POST /api/stripe/webhook
+    // Receives Stripe subscription events. Signature is verified with
+    // STRIPE_WEBHOOK_SECRET; if that secret is not configured yet, we log a
+    // warning and process the event anyway (dev convenience — the owner must
+    // configure the webhook secret before going live).
+    if (pathname === "/api/stripe/webhook" && method === "POST") {
+      const sig = req.headers.get("stripe-signature");
+      const rawBody = await req.text();
+      const secret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      let event: any;
+      if (secret) {
+        try {
+          // constructEventAsync (not constructEvent): the SDK's sync method
+          // uses a SubtleCryptoProvider that throws under Bun ("cannot be used
+          // in a synchronous context"). The async variant works fine.
+          event = await getStripe().webhooks.constructEventAsync(
+            rawBody,
+            sig ?? "",
+            secret,
+          );
+        } catch (err: any) {
+          console.error("[stripe] webhook signature verification failed:", err.message);
+          return json({ error: "Invalid signature" }, 400);
+        }
+      } else {
+        console.warn(
+          "[stripe] STRIPE_WEBHOOK_SECRET is not set — webhook signature NOT verified. " +
+            "Set it in .env.local (and the Stripe dashboard) before going live.",
+        );
+        try {
+          event = JSON.parse(rawBody);
+        } catch {
+          return json({ error: "Invalid JSON body" }, 400);
+        }
+      }
+
+      const db = sql();
+      const eventData = event?.data?.object ?? {};
+      const customerId =
+        typeof eventData.customer === "string" ? eventData.customer : null;
+
+      switch (event.type) {
+        case "checkout.session.completed": {
+          const userId = eventData.client_reference_id as string | undefined;
+          const subscriptionId =
+            typeof eventData.subscription === "string" ? eventData.subscription : null;
+          const email = eventData.customer_details?.email as string | undefined;
+
+          // Locate the user: prefer client_reference_id (user UUID), fall back
+          // to the email Stripe collected at checkout.
+          let targetId = userId ?? null;
+          if (!targetId && email) {
+            const rows = await db`SELECT id FROM users WHERE email = ${email} LIMIT 1`;
+            targetId = rows[0]?.id ?? null;
+          }
+          if (!targetId) {
+            console.warn("[stripe] checkout.session.completed: no matching user", {
+              userId,
+              email,
+            });
+            break;
+          }
+
+          await db`
+            UPDATE users SET
+              stripe_customer_id = ${customerId},
+              stripe_subscription_id = ${subscriptionId},
+              subscription_status = 'active',
+              subscription_tier = 'pro',
+              updated_at = now()
+            WHERE id = ${targetId}
+          `;
+          console.log(
+            `[stripe] user ${targetId} upgraded to Pro (subscription ${subscriptionId})`,
+          );
+          break;
+        }
+
+        case "customer.subscription.updated": {
+          const status = normalizeSubscriptionStatus(eventData.status ?? "active");
+          const subId = typeof eventData.id === "string" ? eventData.id : null;
+          await db`
+            UPDATE users SET
+              stripe_subscription_id = ${subId},
+              subscription_status = ${status},
+              subscription_tier = ${isProStatus(status) ? "pro" : "free"},
+              updated_at = now()
+            WHERE stripe_customer_id = ${customerId}
+          `;
+          break;
+        }
+
+        case "customer.subscription.deleted": {
+          await db`
+            UPDATE users SET
+              subscription_status = 'canceled',
+              subscription_tier = 'free',
+              updated_at = now()
+            WHERE stripe_customer_id = ${customerId}
+          `;
+          break;
+        }
+
+        default:
+          // Acknowledge the event; only the events above affect user state.
+          break;
+      }
+
+      return json({ received: true });
     }
 
     return json({ error: "Not found" }, 404);

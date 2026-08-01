@@ -1,13 +1,14 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { useAuth } from "~/auth-context";
-
-const PRO_CHECKOUT_URL = "https://buy.stripe.com/bJefZj0P9fUd8x96G5fEk00";
+import { createCheckoutUrl } from "~/checkout";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
 
   const isPro = user?.subscription_tier === "pro";
 
@@ -20,6 +21,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
       await logout();
     } finally {
       setLoggingOut(false);
+    }
+  };
+
+  const handleUpgrade = async () => {
+    setCheckingOut(true);
+    setCheckoutError("");
+    try {
+      const url = await createCheckoutUrl();
+      window.location.href = url;
+    } catch (err: any) {
+      setCheckoutError(err.message || "Could not start checkout.");
+      setCheckingOut(false);
     }
   };
 
@@ -41,14 +54,28 @@ export function AppLayout({ children }: { children: ReactNode }) {
             >
               New Clip
             </Link>
-            {/* Only free-tier users see the upsell. */}
-            {user && !isPro && (
-              <a
-                href={PRO_CHECKOUT_URL}
-                className="hidden rounded-sm border border-frag-orange px-5 py-2 font-body text-sm font-semibold text-frag-orange transition-all hover:bg-frag-orange/10 sm:inline-block"
+            {/* Free-tier users see the upgrade CTA; pro users see a badge. */}
+            {user && isPro && (
+              <span
+                className="hidden items-center gap-1.5 rounded-sm border border-frag-orange/60 bg-frag-orange/10 px-3 py-1.5 font-body text-xs font-bold uppercase tracking-wider text-frag-orange sm:inline-flex"
+                title="FragClip Pro active"
               >
-                Upgrade to Pro
-              </a>
+                Pro
+              </span>
+            )}
+            {user && !isPro && (
+              <button
+                onClick={handleUpgrade}
+                disabled={checkingOut}
+                className="hidden rounded-sm border border-frag-orange px-5 py-2 font-body text-sm font-semibold text-frag-orange transition-all hover:bg-frag-orange/10 disabled:cursor-not-allowed disabled:opacity-60 sm:inline-block"
+              >
+                {checkingOut ? "Redirecting…" : "Upgrade to Pro"}
+              </button>
+            )}
+            {checkoutError && (
+              <span className="hidden text-xs text-kill-red sm:inline">
+                {checkoutError}
+              </span>
             )}
             {user && (
               <div className="flex items-center gap-3 border-l border-charcoal pl-4">

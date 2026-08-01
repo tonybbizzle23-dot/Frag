@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "~/auth-context";
+import { createCheckoutUrl } from "~/checkout";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -524,6 +525,22 @@ function Features() {
 /* ─── Pricing ─── */
 function Pricing() {
   const { user } = useAuth();
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
+
+  const isPro = user?.subscription_tier === "pro";
+
+  const handleGoPro = async () => {
+    setCheckingOut(true);
+    setCheckoutError("");
+    try {
+      const url = await createCheckoutUrl();
+      window.location.href = url;
+    } catch (err: any) {
+      setCheckoutError(err.message || "Could not start checkout.");
+      setCheckingOut(false);
+    }
+  };
 
   return (
     <Section id="pricing">
@@ -628,12 +645,33 @@ function Pricing() {
             </li>
           </ul>
 
-          <a
-            href="https://buy.stripe.com/bJefZj0P9fUd8x96G5fEk00"
-            className="mt-8 block rounded-sm bg-frag-orange py-3 text-center font-body text-sm font-semibold text-white transition-all hover:bg-[#FF7A33] cursor-pointer"
-          >
-            Go Pro
-          </a>
+          {!user ? (
+            <Link
+              to="/auth/signup"
+              className="mt-8 block rounded-sm bg-frag-orange py-3 text-center font-body text-sm font-semibold text-white transition-all hover:bg-[#FF7A33] cursor-pointer"
+            >
+              Go Pro
+            </Link>
+          ) : isPro ? (
+            <span className="mt-8 block rounded-sm border border-frag-orange/60 bg-frag-orange/10 py-3 text-center font-body text-sm font-semibold text-frag-orange">
+              ✓ Pro Active
+            </span>
+          ) : (
+            <>
+              <button
+                onClick={handleGoPro}
+                disabled={checkingOut}
+                className="mt-8 block w-full cursor-pointer rounded-sm bg-frag-orange py-3 text-center font-body text-sm font-semibold text-white transition-all hover:bg-[#FF7A33] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {checkingOut ? "Redirecting to checkout…" : "Go Pro"}
+              </button>
+              {checkoutError && (
+                <p className="mt-2 text-center text-xs text-kill-red">
+                  {checkoutError}
+                </p>
+              )}
+            </>
+          )}
         </div>
       </div>
     </Section>
