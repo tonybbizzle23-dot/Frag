@@ -27,3 +27,5 @@ src/routeTree.gen.ts
 *.tmp
 *.swp
 *~
+.vercel
+.env*
