@@ -49,6 +49,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </Link>
           <nav className="flex items-center gap-4">
             <Link
+              to="/app/clips"
+              className="hidden font-body text-sm font-medium text-gray-1 transition-colors hover:text-frag-orange sm:inline"
+            >
+              My Clips
+            </Link>
+            <Link
               to="/app/upload"
               className="rounded-sm bg-frag-orange px-5 py-2 font-body text-sm font-semibold text-white transition-all hover:bg-[#FF7A33] [&.active]:bg-[#FF7A33]"
             >
