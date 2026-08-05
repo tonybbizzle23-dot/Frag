@@ -26,6 +26,7 @@ import {
   getBufferFromStorage,
   getDownloadUrl,
   objectExistsInStorage,
+  deleteFromStorage,
 } from "./r2-client";
 
 import {
@@ -219,6 +220,8 @@ export async function apiRouter(req: Request): Promise<Response> {
     // GET /api/video/:id/exists
     const existsMatch = pathname.match(/^\/api\/video\/([^/]+)\/exists$/);
     if (existsMatch && method === "GET") {
+      const user = await getSessionFromCookie(req);
+      if (!user) return json({ error: "Authentication required" }, 401);
       const id = existsMatch[1];
       const found = await objectExistsInStorage(`uploads/${id}.mp4`);
       return json({ exists: found });
@@ -258,6 +261,8 @@ export async function apiRouter(req: Request): Promise<Response> {
 
     // POST /api/upload (chunked)
     if (pathname === "/api/upload" && method === "POST") {
+      const user = await getSessionFromCookie(req);
+      if (!user) return json({ error: "Authentication required" }, 401);
       try {
         const formData = await req.formData();
         const fileId = formData.get("fileId") as string;
@@ -313,6 +318,8 @@ export async function apiRouter(req: Request): Promise<Response> {
     // GET /api/video/:id
     const videoMatch = pathname.match(/^\/api\/video\/([^/]+)$/);
     if (videoMatch && method === "GET") {
+      const user = await getSessionFromCookie(req);
+      if (!user) return json({ error: "Authentication required" }, 401);
       const id = videoMatch[1];
 
       // Check if video exists in storage
@@ -340,8 +347,11 @@ export async function apiRouter(req: Request): Promise<Response> {
 
     // POST /api/generate-clips
     if (pathname === "/api/generate-clips" && method === "POST") {
+      const user = await getSessionFromCookie(req);
+      if (!user) return json({ error: "Authentication required" }, 401);
       const body = await req.json();
-      const { videoId, markers } = body as { videoId: string; markers: number[] };
+      const { videoId, markers, originalFilename, game } = body as { videoId: string; markers: number[]; originalFilename?: string; game?: string };
+      const db = sql();
 
       if (!videoId || !markers || !Array.isArray(markers) || markers.length === 0) {
         return json({ error: "videoId and markers array are required" }, 400);
@@ -457,6 +467,33 @@ export async function apiRouter(req: Request): Promise<Response> {
           errors.push({ markerIndex: i, variant: "vertical", error: err.message });
         }
 
+        // Extract a representative thumbnail from the generated landscape clip.
+        let thumbnailKey: string | null = null;
+        if (clipResult.landscape) {
+          const thumbnailPath = path.join(tempClipDir, `clip_${i}_thumb.jpg`);
+          try {
+            await runFfmpeg(["-ss", "2", "-i", path.join(tempClipDir, landscapeFile), "-frames:v", "1", "-q:v", "3", "-y", thumbnailPath]);
+            await validateOutput(thumbnailPath);
+            thumbnailKey = `clips/${videoId}/clip_${i}_thumb.jpg`;
+            await uploadToStorage(thumbnailKey, await readFile(thumbnailPath), "image/jpeg");
+          } catch (err: any) {
+            clipResult.errors.push(`thumbnail: ${err.message}`);
+          } finally {
+            await unlink(thumbnailPath).catch(() => {});
+          }
+        }
+
+        const status = clipResult.landscape || clipResult.vertical ? "ready" : "failed";
+        await db`
+          INSERT INTO clips (user_id, video_id, marker_index, marker_time, landscape_storage_key,
+            vertical_storage_key, thumbnail_storage_key, original_filename, game, duration_seconds, status)
+          VALUES (${user.id}, ${videoId}, ${i}, ${markerTime},
+            ${clipResult.landscape ? `clips/${videoId}/${landscapeFile}` : null},
+            ${clipResult.vertical ? `clips/${videoId}/${verticalFile}` : null}, ${thumbnailKey},
+            ${typeof originalFilename === "string" ? originalFilename.slice(0, 500) : null},
+            ${typeof game === "string" ? game.slice(0, 100) : null}, ${clipResult.landscape || clipResult.vertical ? clipDuration : null},
+            ${status})
+        `;
         results.push(clipResult);
       }
 
@@ -479,10 +516,42 @@ export async function apiRouter(req: Request): Promise<Response> {
       });
     }
 
+    // GET /api/clips — persistent clip library.
+    if (pathname === "/api/clips" && method === "GET") {
+      const user = await getSessionFromCookie(req);
+      if (!user) return json({ error: "Authentication required" }, 401);
+      const rows = await sql()`SELECT * FROM clips WHERE user_id = ${user.id} ORDER BY created_at DESC`;
+      const clips = await Promise.all(rows.map(async (clip: any) => ({
+        ...clip,
+        landscapeUrl: clip.landscape_storage_key ? await getDownloadUrl(clip.landscape_storage_key, 604800) : null,
+        verticalUrl: clip.vertical_storage_key ? await getDownloadUrl(clip.vertical_storage_key, 604800) : null,
+        thumbnailUrl: clip.thumbnail_storage_key ? await getDownloadUrl(clip.thumbnail_storage_key, 604800) : null,
+      })));
+      return json({ clips });
+    }
+
+    // DELETE /api/clips/:id — delete only the authenticated user's clip.
+    const clipDeleteMatch = pathname.match(/^\/api\/clips\/([^/]+)$/);
+    if (clipDeleteMatch && method === "DELETE") {
+      const user = await getSessionFromCookie(req);
+      if (!user) return json({ error: "Authentication required" }, 401);
+      const [clip] = await sql()`SELECT * FROM clips WHERE id = ${clipDeleteMatch[1]} LIMIT 1`;
+      if (!clip) return json({ error: "Clip not found" }, 404);
+      if (clip.user_id !== user.id) return json({ error: "Forbidden" }, 403);
+      await Promise.all([clip.landscape_storage_key, clip.vertical_storage_key, clip.thumbnail_storage_key]
+        .filter(Boolean).map((key) => deleteFromStorage(key)));
+      await sql()`DELETE FROM clips WHERE id = ${clip.id} AND user_id = ${user.id}`;
+      return json({ success: true });
+    }
+
     // GET /api/clips/:id/:file
     const clipMatch = pathname.match(/^\/api\/clips\/([^/]+)\/([^/]+)$/);
     if (clipMatch && method === "GET") {
+      const user = await getSessionFromCookie(req);
+      if (!user) return json({ error: "Authentication required" }, 401);
       const [, id, file] = clipMatch;
+      const [owned] = await sql()`SELECT 1 FROM clips WHERE user_id = ${user.id} AND video_id = ${id} AND marker_index = ${Number(file.match(/^clip_(\d+)_/)?.[1] ?? -1)} LIMIT 1`;
+      if (!owned) return json({ error: "Clip not found" }, 404);
 
       // Validate: only allow clip_*.mp4
       if (!/^clip_\d+_(landscape|vertical)\.mp4$/.test(file)) {
@@ -514,6 +583,8 @@ export async function apiRouter(req: Request): Promise<Response> {
 
     // POST /api/list-clips
     if (pathname === "/api/list-clips" && method === "POST") {
+      const user = await getSessionFromCookie(req);
+      if (!user) return json({ error: "Authentication required" }, 401);
       const body = await req.json();
       const { videoId } = body as { videoId: string };
 
