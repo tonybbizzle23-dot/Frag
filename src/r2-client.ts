@@ -134,16 +134,14 @@ export async function getBufferFromStorage(key: string): Promise<Buffer | null> 
       const result = await client.send(
         new GetObjectCommand({ Bucket: BUCKET, Key: key })
       );
-      const stream = result.Body as ReadableStream;
-      if (!stream) return null;
-      const chunks: Uint8Array[] = [];
-      const reader = stream.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
-      return Buffer.concat(chunks);
+      // result.Body is either a web ReadableStream or a Node Readable depending on runtime
+      const body = result.Body;
+      if (!body) return null;
+      // @aws-sdk v3: transformToByteArray works on both stream types
+      const bytes = await (body as any).transformToByteArray?.() ?? 
+        (body as any).transformToString?.('base64').then((s: string) => Buffer.from(s, 'base64'));
+      if (!bytes) return null;
+      return Buffer.from(bytes);
     } catch (err: any) {
       if (err.name === "NoSuchKey") return null;
       throw err;
