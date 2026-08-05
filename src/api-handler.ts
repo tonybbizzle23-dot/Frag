@@ -65,6 +65,28 @@ export async function apiRouter(req: Request): Promise<Response> {
   try {
     // ── Auth routes ──
 
+    // POST /api/markers — record a desktop companion highlight marker.
+    if (pathname === "/api/markers" && method === "POST") {
+      const user = await getSessionFromCookie(req);
+      if (!user) return json({ error: "Authentication required" }, 401);
+      const body = await req.json().catch(() => null);
+      const { timestamp, windowTitle, sessionId } = body || {};
+      if (!sessionId || typeof sessionId !== "string" || sessionId.length > 200) {
+        return json({ error: "sessionId is required" }, 400);
+      }
+      const parsedTimestamp = new Date(timestamp);
+      if (!timestamp || Number.isNaN(parsedTimestamp.getTime())) {
+        return json({ error: "timestamp must be a valid ISO 8601 date" }, 400);
+      }
+      const db = sql();
+      const [marker] = await db`
+        INSERT INTO markers (user_id, session_id, timestamp, window_title)
+        VALUES (${user.id}, ${sessionId}, ${parsedTimestamp.toISOString()}, ${typeof windowTitle === "string" ? windowTitle.slice(0, 500) : null})
+        RETURNING id, session_id, timestamp, window_title, created_at
+      `;
+      return json({ marker }, 201);
+    }
+
     // POST /api/auth/signup
     if (pathname === "/api/auth/signup" && method === "POST") {
       const body = await req.json().catch(() => null);
