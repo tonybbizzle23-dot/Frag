@@ -48,29 +48,19 @@ function AppHome() {
             </p>
           </Link>
 
-          <div className="rounded-md border border-charcoal bg-void p-8 text-left opacity-50">
+          <Link
+            to="/app/clips"
+            className="group rounded-md border border-charcoal bg-void p-8 text-left transition-all hover:border-frag-orange/30"
+          >
             <div className="mb-3 text-frag-orange">
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 2v20M2 12h20" />
-                <circle cx="12" cy="12" r="4" />
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="m8 4 2 4h4l2-4M8 20l2-4h4l2 4M9 12h.01M15 12h.01" />
               </svg>
             </div>
-            <h3 className="font-subheading text-xl font-semibold text-white">
-              Mark
-            </h3>
-            <p className="mt-2 text-sm text-gray-2">
-              Drop markers on key moments — upload first to unlock.
-            </p>
-          </div>
+            <h3 className="font-subheading text-xl font-semibold text-white">My Clips</h3>
+            <p className="mt-2 text-sm text-gray-2">Browse, download, and manage your saved highlights.</p>
+          </Link>
 
           <div className="rounded-md border border-charcoal bg-void p-8 text-left opacity-50">
             <div className="mb-3 text-frag-orange">
