@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "FragClip Companion",
+  "version": "0.1.0",
+  "identifier": "com.fragclip.companion",
+  "build": { "beforeDevCommand": "npm run dev", "beforeBuildCommand": "npm run build", "devUrl": "http://localhost:1420", "frontendDist": "../dist" },
+  "app": { "windows": [{ "title": "FragClip Companion", "width": 380, "height": 520, "resizable": false }], "security": { "csp": null }, "trayIcon": { "iconPath": "icons/icon.png", "tooltip": "FragClip Companion" } },
+  "bundle": { "active": true, "targets": ["nsis", "msi"], "icon": ["icons/icon.png"] }
+}
