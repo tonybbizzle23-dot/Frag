@@ -35,6 +35,7 @@ import {
   isProStatus,
   normalizeSubscriptionStatus,
 } from "./stripe";
+import { sendWelcomeEmail } from "./email";
 
 const TEMP_DIR = path.join(os.tmpdir(), "fragclip");
 const LOCAL_DIR = "/home/team/shared/uploads";
@@ -126,6 +127,12 @@ export async function apiRouter(req: Request): Promise<Response> {
       // Create session
       const token = await createSession(user.id);
       const cookie = sessionCookieHeader(token);
+
+      // Email delivery is best-effort: never prevent a newly created user from
+      // receiving their session if the mail capability is unavailable/fails.
+      void sendWelcomeEmail(user.email).catch((error) => {
+        console.error("[auth/signup] Failed to send welcome email", error);
+      });
 
       return json(
         {
