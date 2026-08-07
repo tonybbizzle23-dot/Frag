@@ -1,0 +1,13 @@
+# Rust build artifacts
+target/
+**/target/
+
+# Node
+node_modules/
+
+# Vite output
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
