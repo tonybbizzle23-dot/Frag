@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useAuth } from "~/auth-context";
 import { createCheckoutUrl } from "~/checkout";
 
@@ -165,84 +165,6 @@ const games = [
   "Overwatch",
 ];
 
-/* ─── Waitlist Form ─── */
-function WaitlistForm() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "submitted" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState("");
-
-  const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    const trimmed = email.trim();
-
-    if (!trimmed) {
-      setStatus("error");
-      setErrorMsg("Email is required.");
-      return;
-    }
-    if (!isValidEmail(trimmed)) {
-      setStatus("error");
-      setErrorMsg("Please enter a valid email address.");
-      return;
-    }
-
-    setStatus("submitted");
-    setEmail("");
-    setErrorMsg("");
-  };
-
-  if (status === "submitted") {
-    return (
-      <div className="flex flex-col items-center gap-3 rounded-md border border-victory-green/30 bg-victory-green/5 px-6 py-8 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-victory-green/20 text-victory-green">
-          <IconCheck />
-        </div>
-        <p className="font-subheading text-xl font-semibold text-white">
-          You&apos;re on the list!
-        </p>
-        <p className="text-sm text-gray-2">
-          We&apos;ll notify you when FragClip launches. Get ready to clip.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex w-full max-w-md flex-col gap-3">
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              if (status === "error") setStatus("idle");
-            }}
-            placeholder="you@example.com"
-            className={`w-full rounded-sm border bg-charcoal px-4 py-3 text-white placeholder-gray-2 transition-colors focus:outline-none focus:ring-2 focus:ring-frag-orange/50 ${
-              status === "error"
-                ? "border-kill-red"
-                : "border-gray-3"
-            }`}
-            aria-label="Email address"
-          />
-        </div>
-        <button
-          type="submit"
-          className="rounded-sm bg-frag-orange px-6 py-3 font-body text-sm font-semibold text-white transition-all hover:bg-[#FF7A33] active:scale-[0.98] cursor-pointer"
-        >
-          Join the waitlist
-        </button>
-      </div>
-      {status === "error" && (
-        <p className="text-sm text-kill-red">{errorMsg}</p>
-      )}
-    </form>
-  );
-}
-
 /* ─── Section Wrapper ─── */
 function Section({
   id,
@@ -279,8 +201,8 @@ function Home() {
       {/* Pricing */}
       <Pricing />
 
-      {/* Waitlist */}
-      <Waitlist />
+      {/* Get Started */}
+      <GetStarted />
 
       {/* Footer */}
       <Footer />
@@ -292,7 +214,7 @@ function Home() {
 function Nav() {
   const { user, isLoading } = useAuth();
   const ctaTo = user ? "/app" : "/auth/signup";
-  const ctaLabel = user ? "Open App" : "Get Early Access";
+  const ctaLabel = user ? "Open App" : "Get Started Free";
 
   return (
     <nav className="sticky top-0 z-20 border-b border-charcoal/50 bg-abyss/80 backdrop-blur-md">
@@ -334,7 +256,7 @@ function Nav() {
           to={ctaTo}
           className="rounded-sm bg-frag-orange px-4 py-1.5 font-body text-xs font-semibold text-white md:hidden cursor-pointer"
         >
-          {isLoading ? "…" : user ? "Open App" : "Join"}
+          {isLoading ? "…" : user ? "Open App" : "Sign Up"}
         </Link>
       </div>
     </nav>
@@ -345,7 +267,7 @@ function Nav() {
 function Hero() {
   const { user, isLoading } = useAuth();
   const ctaTo = user ? "/app" : "/auth/signup";
-  const ctaLabel = user ? "Open App" : "Get Early Access";
+  const ctaLabel = user ? "Open App" : "Get Started Free";
 
   return (
     <section className="relative flex min-h-[85dvh] items-center justify-center overflow-hidden">
@@ -678,33 +600,33 @@ function Pricing() {
   );
 }
 
-/* ─── Waitlist CTA ─── */
-function Waitlist() {
+/* ─── Get Started CTA ─── */
+function GetStarted() {
   return (
-    <Section id="waitlist" className="bg-void">
+    <Section id="get-started" className="bg-void">
       <div className="flex flex-col items-center text-center">
         <h2 className="font-heading text-4xl tracking-[0.02em] md:text-5xl">
           Ready to{" "}
           <span className="text-gradient-signature">Clip?</span>
         </h2>
         <p className="mt-3 max-w-md text-gray-2">
-          FragClip is launching soon. Join the waitlist to be first in line —
-          and get early access before everyone else.
+          FragClip is live — sign up free and start clipping your best moments
+          in minutes. No editing skills required.
         </p>
-
-        <div className="mt-8 w-full">
-          <WaitlistForm />
-        </div>
-
+        <Link
+          to="/auth/signup"
+          className="mt-8 rounded-sm bg-frag-orange px-8 py-3 font-body text-sm font-semibold text-white transition-all hover:bg-[#FF7A33] active:scale-[0.98] cursor-pointer"
+        >
+          Get Started Free
+        </Link>
         <p className="mt-4 text-xs text-gray-3">
-          No spam. Unsubscribe anytime. We hate spam as much as you hate
-          missing a clutch clip.
+          Free tier: 10 clips a month, watermarked. Pro at $5/mo — unlimited,
+          watermark-free.
         </p>
       </div>
     </Section>
   );
 }
-
 /* ─── Footer ─── */
 function Footer() {
   return (
