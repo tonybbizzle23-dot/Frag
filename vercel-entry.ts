@@ -8,9 +8,15 @@
 //
 // Bundled (with its deps + the SSR handler's dynamic ./assets chunks) into
 // .vercel/output/functions/render.func/index.mjs by build-vercel.sh.
+//
+// API routes: the same /api/* → apiRouter interception the local preview server
+// (serve.ts) performs must happen here too — the TanStack SSR handler does not
+// know any /api routes, so without this every /api/* request on Vercel falls
+// through to the SSR 404 page (signup/login/markers all broken in production).
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import handler from "./dist/server/server.js";
+import { apiRouter } from "./src/api-handler";
 
 const fetchHandler = handler as {
   fetch: (request: Request) => Response | Promise<Response>;
@@ -42,7 +48,11 @@ export default async function vercelHandler(
   res: ServerResponse,
 ): Promise<void> {
   try {
-    const webRes = await fetchHandler.fetch(toWebRequest(req));
+    const webReq = toWebRequest(req);
+    const { pathname } = new URL(webReq.url);
+    const webRes = pathname.startsWith("/api/")
+      ? await apiRouter(webReq)
+      : await fetchHandler.fetch(webReq);
     res.statusCode = webRes.status;
     webRes.headers.forEach((value, key) => res.setHeader(key, value));
     if (webRes.body) {
