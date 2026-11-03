@@ -20,13 +20,13 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "FragClip automatically clips your best FPS moments — kills, headshots, multikills — and exports them for TikTok, Shorts, and Reels.",
+          "FragClip turns the FPS moments you mark — kills, headshots, multikills — into ready-to-post clips for TikTok, Shorts, and Reels.",
       },
       { property: "og:title", content: "FragClip — Clip What Matters" },
       {
         property: "og:description",
         content:
-          "Auto-detect and export your best FPS gameplay moments. No scrubbing required.",
+          "Mark your best FPS moments with a hotkey or on the timeline, then export vertical clips. No scrubbing required.",
       },
       { property: "og:type", content: "website" },
       { name: "theme-color", content: "#0A0A0F" },

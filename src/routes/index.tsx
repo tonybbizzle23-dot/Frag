@@ -296,9 +296,8 @@ function Hero() {
           <span className="text-frag-orange">Zero Effort.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-gray-1 md:text-lg">
-          FragClip automatically clips your best FPS moments — kills,
-          headshots, multikills — and exports them for TikTok, Shorts, and
-          Reels.
+          FragClip turns the moments you mark — kills, headshots,
+          multikills — into ready-to-post clips for TikTok, Shorts, and Reels.
         </p>
         <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
           <Link
@@ -390,8 +389,8 @@ function Features() {
   const features = [
     {
       icon: <IconZap />,
-      title: "Auto-Detect Key Moments",
-      body: "Kills, headshots, multikills, wins — FragClip finds your best plays so you don't have to scrub through hours of footage.",
+      title: "Mark Moments in Seconds",
+      body: "Kills, headshots, multikills, wins — hit your hotkey mid-game or drop markers on the timeline after your session, and FragClip cuts it for you. No scrubbing through hours of footage.",
     },
     {
       icon: <IconGamepad />,
@@ -503,7 +502,7 @@ function Pricing() {
               <span className="mt-0.5 text-victory-green">
                 <IconCheck />
               </span>
-              Basic auto-clip triggers
+              Basic hotkey + timeline marking
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-0.5 text-victory-green">
@@ -551,7 +550,7 @@ function Pricing() {
               <span className="mt-0.5 text-victory-green">
                 <IconCheck />
               </span>
-              Custom trigger rules
+              Custom marker presets &amp; hotkeys
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-0.5 text-victory-green">
